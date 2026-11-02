@@ -1,10 +1,15 @@
-# GPUYield
+<p align="center"><img src="docs/images/banner.png" alt="GPUYield: switch the NVIDIA GPU of your MacBook off and on, right from the menu bar"></p>
 
 A small menu bar app for Intel MacBooks with two graphics cards that switches the discrete GPU
 (NVIDIA or AMD) off and on again – without typing `sudo pmset -a gpuswitch …` in Terminal.
 
 Made for an older MacBook Pro that runs hot: the discrete GPU shares its heat sink with the CPU,
 so letting the Intel GPU draw keeps the whole machine cooler and quieter.
+
+<p align="center">
+  <img src="docs/images/menu.png" width="294" alt="The GPUYield menu: the active graphics card, the modes Intel only, Automatic and NVIDIA only, switch without password, start at login, version and quit">
+</p>
+<p align="center"><em>The NVIDIA switched off, the Intel GPU draws.</em></p>
 
 The menu offers three modes:
 
