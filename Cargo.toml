@@ -1,0 +1,21 @@
+[package]
+name = "gpuyield"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "GPL-3.0-or-later"
+description = "Menu bar app for Intel MacBooks with two graphics cards that switches the discrete GPU off and on"
+publish = false
+
+[dependencies]
+tray-icon = "0.26"
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSResponder", "NSRunningApplication"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString"] }
+core-foundation-sys = "0.8"
+libc = "0.2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
