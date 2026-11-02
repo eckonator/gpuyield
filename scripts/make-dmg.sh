@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Packs dist/GPUYield.app into a disk image with a link to Applications (drag to install).
+# Usage: scripts/make-dmg.sh [target.dmg]   (run scripts/bundle-macos.sh first)
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+OUT="${1:-dist/GPUYield-$VERSION-macOS.dmg}"
+APP="dist/GPUYield.app"
+[ -d "$APP" ] || { echo "Missing: $APP (run scripts/bundle-macos.sh first)" >&2; exit 1; }
+
+STAGE=$(mktemp -d)
+trap 'rm -rf "$STAGE"' EXIT
+ditto "$APP" "$STAGE/GPUYield.app"
+ln -s /Applications "$STAGE/Applications"
+cp README.md LICENSE "$STAGE/"
+# Licenses of the libraries (written by the release workflow)
+if [ -f dist/THIRD-PARTY-LICENSES.yml ]; then cp dist/THIRD-PARTY-LICENSES.yml "$STAGE/"; fi
+rm -f "$OUT"
+hdiutil create -quiet -volname "GPUYield $VERSION" -srcfolder "$STAGE" -format UDZO "$OUT"
+echo "Done: $OUT"

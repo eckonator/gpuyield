@@ -44,13 +44,17 @@ The rule is checked with `visudo` before it is installed. Choosing the menu item
 
 ## Install
 
-```sh
-scripts/bundle-macos.sh   # dist/GPUYield.app
-cp -R dist/GPUYield.app /Applications/
-open /Applications/GPUYield.app
-```
+Download the disk image (`GPUYield-<version>-macOS.dmg`) from the
+[releases](https://github.com/eckonator/gpuyield/releases) and drag GPUYield to Applications.
 
-GPUYield is signed ad-hoc (or with the certificate in `GY_SIGN_IDENTITY`), not notarized by Apple.
+GPUYield is not notarized by Apple. On the first start macOS refuses it once: open System Settings
+→ Privacy & Security and choose "Open Anyway".
+
+## Releases
+
+Every push to `main` builds the app on GitHub. If the `version` in `Cargo.toml` has no release yet,
+the build becomes the release `v<version>`; otherwise it replaces the pre-release `testing`. So for
+a new release, raise the version in `Cargo.toml` and push.
 
 ## Files
 
@@ -63,6 +67,7 @@ GPUYield is signed ad-hoc (or with the certificate in `GY_SIGN_IDENTITY`), not n
 ```sh
 cargo test
 scripts/bundle-macos.sh   # dist/GPUYield.app
+scripts/make-dmg.sh       # dist/GPUYield-<version>-macOS.dmg
 ```
 
 ## License

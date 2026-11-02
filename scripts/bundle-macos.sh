@@ -3,6 +3,8 @@
 # Builds dist/GPUYield.app.
 # GY_SIGN_IDENTITY / GY_SIGN_KEYCHAIN: certificate to sign with (default: ad-hoc).
 # Usage: scripts/bundle-macos.sh   (GY_SKIP_BUILD=1 uses the program already in target/release)
+# GY_BINARY: the program to bundle (default target/release/gpuyield); GY_ICON_TOOL: a program of
+# this machine that draws the icons (default: the bundled one)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -15,12 +17,12 @@ fi
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp target/release/gpuyield "$APP/Contents/MacOS/GPUYield"
+cp "${GY_BINARY:-target/release/gpuyield}" "$APP/Contents/MacOS/GPUYield"
 
 # The app icon is drawn by the program itself
 ICONS=$(mktemp -d)
 trap 'rm -rf "$ICONS"' EXIT
-"$APP/Contents/MacOS/GPUYield" --write-icons "$ICONS"
+"${GY_ICON_TOOL:-$APP/Contents/MacOS/GPUYield}" --write-icons "$ICONS"
 iconutil -c icns -o "$APP/Contents/Resources/GPUYield.icns" "$ICONS/GPUYield.iconset"
 
 cat > "$APP/Contents/Info.plist" <<PLIST

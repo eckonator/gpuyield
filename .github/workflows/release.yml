@@ -1,0 +1,148 @@
+# Builds GPUYield for macOS (Intel only: the Macs with two graphics cards are Intel Macs).
+#
+# - Push to main with a `version` in Cargo.toml that has no release yet: the release `v<version>`
+#   (the tag is made here). A release is never replaced; for changes raise the version.
+# - Every other push to main: the test build (pre-release under the tag `testing`), replaced each time.
+# - By hand under "Actions → Release → Run workflow": artifacts only, no release.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # A release if this version has none yet, else a test build
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      release: ${{ steps.plan.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = push ] && ! gh release view "v$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::new version $V: release v$V"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: plan
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Tests
+        run: cargo test --release
+
+      - name: Licenses of the libraries
+        run: |
+          cargo install cargo-bundle-licenses --locked
+          cargo bundle-licenses --format yaml --output THIRD-PARTY-LICENSES.yml
+
+      # Signed with an own certificate if the secrets MACOS_SIGN_P12 (base64) and
+      # MACOS_SIGN_PASSWORD are set; without them ad-hoc.
+      - name: App, zip and disk image
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "10.15"
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          GY_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+        run: |
+          if [ -n "$MACOS_SIGN_P12" ]; then
+            echo "$MACOS_SIGN_P12" | base64 --decode > "$RUNNER_TEMP/sign.p12"
+            eval "$(scripts/signing-keychain.sh "$RUNNER_TEMP/sign.p12" "$RUNNER_TEMP/sign.keychain-db")"
+            rm "$RUNNER_TEMP/sign.p12"
+          else
+            echo "::warning::no signing certificate, the app is signed ad-hoc"
+          fi
+          cargo build --release --target x86_64-apple-darwin
+          # The icons are drawn by a build for this (Apple silicon) runner, the app gets the Intel one
+          cargo build --release
+          GY_SKIP_BUILD=1 GY_BINARY=target/x86_64-apple-darwin/release/gpuyield \
+            GY_ICON_TOOL=target/release/gpuyield scripts/bundle-macos.sh
+          mkdir -p pkg
+          V="${{ needs.plan.outputs.version }}"
+          cp README.md LICENSE THIRD-PARTY-LICENSES.yml dist/
+          ditto -c -k --keepParent dist/GPUYield.app "pkg/GPUYield-$V-macOS.zip"
+          (cd dist && zip -q "../pkg/GPUYield-$V-macOS.zip" README.md LICENSE THIRD-PARTY-LICENSES.yml)
+          scripts/make-dmg.sh "pkg/GPUYield-$V-macOS.dmg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GPUYield-macOS
+          path: pkg/*
+
+  release:
+    needs: [plan, build]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      V: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: pkg
+          merge-multiple: true
+
+      # A tag of this version without a release (an earlier attempt) would keep its old commit
+      - name: Remove a tag left without release
+        if: needs.plan.outputs.release == 'true'
+        run: gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/v$V" || true
+      - name: Release
+        if: needs.plan.outputs.release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.plan.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: GPUYield ${{ needs.plan.outputs.version }}
+          prerelease: false
+          make_latest: true
+          body: |
+            GPUYield ${{ needs.plan.outputs.version }} for Intel MacBooks with two graphics cards (macOS 10.15 or newer, also with OpenCore Legacy Patcher).
+
+            Open the `.dmg` and drag GPUYield to Applications. On first start macOS refuses it once: click Done, then System Settings → Privacy & Security → **Open Anyway**.
+          files: pkg/*
+
+      # The test build: remove the previous one with its tag, so the tag points at the new commit
+      - name: Remove the previous test build
+        if: needs.plan.outputs.release != 'true'
+        run: gh release delete testing --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
+      - name: Test build
+        if: needs.plan.outputs.release != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: testing
+          target_commitish: ${{ github.sha }}
+          name: GPUYield test build (${{ needs.plan.outputs.version }}, ${{ github.sha }})
+          prerelease: true
+          make_latest: false
+          body: |
+            **Test build** with the files below, made from the newest state of `main` (commit ${{ github.sha }}). It is replaced with every change and may have rough edges.
+
+            For everyday use, take the release marked **Latest** above instead.
+          files: pkg/*
