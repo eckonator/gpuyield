@@ -44,11 +44,22 @@ The rule is checked with `visudo` before it is installed. Choosing the menu item
 
 ## Install
 
-Download the disk image (`GPUYield-<version>-macOS.dmg`) from the
+In Terminal:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/eckonator/gpuyield/main/scripts/install-macos.sh | bash
+```
+
+This puts the newest version into `/Applications` and starts it. Alternatively download the disk
+image (`GPUYield-<version>-macOS.dmg`) from the
 [releases](https://github.com/eckonator/gpuyield/releases) and drag GPUYield to Applications.
 
-GPUYield is not notarized by Apple. On the first start macOS refuses it once: open System Settings
-→ Privacy & Security and choose "Open Anyway".
+GPUYield is signed with its own certificate, but not notarized by Apple. Started from the disk
+image, macOS refuses it the first time: open System Settings → Privacy & Security and choose
+"Open Anyway" (once). Installed with the command above, no such question comes up.
+
+The mode is a setting of macOS (`/Library/Preferences/com.apple.PowerManagement.plist`), so it
+stays after a restart, also while GPUYield is not running.
 
 ## Releases
 

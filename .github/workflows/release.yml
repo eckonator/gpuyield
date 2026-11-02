@@ -125,7 +125,10 @@ jobs:
           body: |
             GPUYield ${{ needs.plan.outputs.version }} for Intel MacBooks with two graphics cards (macOS 10.15 or newer, also with OpenCore Legacy Patcher).
 
-            Open the `.dmg` and drag GPUYield to Applications. On first start macOS refuses it once: click Done, then System Settings → Privacy & Security → **Open Anyway**.
+            Open the `.dmg` and drag GPUYield to Applications. On first start macOS refuses it once: click Done, then System Settings → Privacy & Security → **Open Anyway**. Or install from Terminal without that step:
+            ```
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/install-macos.sh | bash
+            ```
           files: pkg/*
 
       # The test build: remove the previous one with its tag, so the tag points at the new commit
